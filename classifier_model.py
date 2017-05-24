@@ -68,6 +68,9 @@ class ResNet(object):
 
   def _build_model(self):
     """Build the core model within the graph."""
+    self.frozen_vars = tf.trainable_variables()
+    print("Frozen vars: {0}".format(self.frozen_vars))
+
     with tf.variable_scope('init'):
       x = self._images
       x = x - 0.5
@@ -143,7 +146,7 @@ class ResNet(object):
     self.lrn_rate = tf.constant(self.hps.lrn_rate, tf.float32)
     tf.summary.scalar('learning_rate', self.lrn_rate)
 
-    trainable_variables = tf.trainable_variables()
+    trainable_variables = list(set(tf.trainable_variables()) - set(self.frozen_vars))
     grads = tf.gradients(self.cost, trainable_variables)
 
     if self.hps.optimizer == 'sgd':
@@ -276,7 +279,8 @@ class ResNet(object):
     """L2 weight decay loss."""
     costs = []
     for var in tf.trainable_variables():
-      if var.op.name.find(r'DW') > 0:
+      print(var.op.name)
+      if var.op.name.find(r'DW') > 0 and var.op.name.find(r'encoder') == 0 and var.op.name.find(r'decoder') == 0:
         costs.append(tf.nn.l2_loss(var))
         # tf.summary.histogram(var.op.name, var)
 

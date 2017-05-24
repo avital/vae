@@ -25,7 +25,7 @@ import classifier_model
 import tensorflow as tf
 import vae_model
 
-EXP_NAME='prog-classifier-2'
+EXP_NAME='prog-classifier-4-frozen-fix-l2'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
