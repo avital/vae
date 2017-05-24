@@ -25,19 +25,19 @@ import classifier_model
 import tensorflow as tf
 import vae_model
 
-EXP_NAME='prog-classifier-4-frozen-fix-l2'
+EXP_NAME='classifier-baseline-prog'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
 tf.app.flags.DEFINE_string('train_data_path', 'cifar10/data_batch*',
                            'Filepattern for training data.')
-tf.app.flags.DEFINE_string('eval_data_path', '',
+tf.app.flags.DEFINE_string('eval_data_path', 'cifar10/test_batch*',
                            'Filepattern for eval data')
 tf.app.flags.DEFINE_integer('image_size', 32, 'Image side length.')
-tf.app.flags.DEFINE_string('train_dir', 'train-dir/{0}'.format(EXP_NAME),
+tf.app.flags.DEFINE_string('train_dir', 'logs/{0}/train'.format(EXP_NAME),
                            'Directory to keep training outputs.')
-tf.app.flags.DEFINE_string('eval_dir', 'eval-dir/{0}'.format(EXP_NAME),
+tf.app.flags.DEFINE_string('eval_dir', 'logs/{0}/eval'.format(EXP_NAME),
                            'Directory to keep eval outputs.')
 tf.app.flags.DEFINE_integer('eval_batch_count', 50,
                             'Number of batches to eval.')
@@ -48,191 +48,214 @@ tf.app.flags.DEFINE_string('log_root', 'logs/{0}'.format(EXP_NAME),
                            'parent directory of FLAGS.train_dir/eval_dir.')
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             'Number of gpus used for training. (0 or 1)')
+tf.app.flags.DEFINE_bool('vae_prog', True,
+                         'Concatenate parallel layers from a pre-trained VAE network')
+tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'vae-logs/cifar10-semiwide-resnet-vae-z-2000-free-nats-0.25-bn-lrn-anneal1/model.ckpt-108148',
+                           'Model checkpoint for pre-trained VAE')
 
 
 def train(hps):
-  """Training loop."""
-  images, labels = cifar_input.build_input(
-      FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
+    """Training loop."""
+    images, labels = cifar_input.build_input(
+        FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
 
-  from collections import namedtuple
-  VAEHParams = namedtuple('HParams',
-                          'batch_size, num_classes, '
-                          'num_residual_units, weight_decay_rate, '
-                          'relu_leakiness, n_z')
+    if FLAGS.vae_prog:
+        trained_vae = load_vae(images, labels, hps.batch_size)
 
-  vae_hps = VAEHParams(batch_size=128,
-                       num_classes=10,
-                       num_residual_units=4,
-                       #              num_residual_units=2,
-                       weight_decay_rate=0.0002,
-                       relu_leakiness=0.1,
-                       n_z=2000)
+    model = classifier_model.ResNet(hps, images, labels, FLAGS.mode)
+    if FLAGS.vae_prog:
+        model.use_vae_prog = True
+        model.vae = trained_vae
+    else:
+        model.use_vae_prog = False
 
-  trained_vae = vae_model.ResNet(vae_hps, images, labels, FLAGS.mode)
-  trained_vae.build_graph()
-  sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-  tf.train.Saver().restore(sess, "vae-logs/cifar10-semiwide-resnet-vae-z-2000-free-nats-0.25-bn-lrn-anneal1/model.ckpt-108148")
+    model.build_graph()
 
-  model = classifier_model.ResNet(hps, images, labels, FLAGS.mode)
-  model.use_vae_prog = True
-  model.vae = trained_vae
-  model.build_graph()
+    param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
+        tf.get_default_graph(),
+        tfprof_options=tf.contrib.tfprof.model_analyzer.
+            TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
+    sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
 
-  param_stats = tf.contrib.tfprof.model_analyzer.print_model_analysis(
-      tf.get_default_graph(),
-      tfprof_options=tf.contrib.tfprof.model_analyzer.
-          TRAINABLE_VARS_PARAMS_STAT_OPTIONS)
-  sys.stdout.write('total_params: %d\n' % param_stats.total_parameters)
+    tf.contrib.tfprof.model_analyzer.print_model_analysis(
+        tf.get_default_graph(),
+        tfprof_options=tf.contrib.tfprof.model_analyzer.FLOAT_OPS_OPTIONS)
 
-  tf.contrib.tfprof.model_analyzer.print_model_analysis(
-      tf.get_default_graph(),
-      tfprof_options=tf.contrib.tfprof.model_analyzer.FLOAT_OPS_OPTIONS)
+    truth = tf.argmax(model.labels, axis=1)
+    predictions = tf.argmax(model.predictions, axis=1)
+    precision = tf.reduce_mean(tf.to_float(tf.equal(predictions, truth)))
 
-  truth = tf.argmax(model.labels, axis=1)
-  predictions = tf.argmax(model.predictions, axis=1)
-  precision = tf.reduce_mean(tf.to_float(tf.equal(predictions, truth)))
+    summary_hook = tf.train.SummarySaverHook(
+        save_steps=20,
+        output_dir=FLAGS.train_dir,
+        summary_op=tf.summary.merge([model.summaries,
+                                     tf.summary.scalar('Precision', precision)]))
 
-  summary_hook = tf.train.SummarySaverHook(
-      save_steps=5,
-      output_dir=FLAGS.train_dir,
-      summary_op=tf.summary.merge([model.summaries,
-                                   tf.summary.scalar('Precision', precision)]))
+    logging_hook = tf.train.LoggingTensorHook(
+        tensors={'step': model.global_step,
+                 'loss': model.cost,
+                 'precision': precision},
+        every_n_iter=20)
 
-  logging_hook = tf.train.LoggingTensorHook(
-      tensors={'step': model.global_step,
-               'loss': model.cost,
-               'precision': precision},
-      every_n_iter=20)
+    class _LearningRateSetterHook(tf.train.SessionRunHook):
+        """Sets learning_rate based on global step."""
 
-  class _LearningRateSetterHook(tf.train.SessionRunHook):
-    """Sets learning_rate based on global step."""
+        def begin(self):
+            self._lrn_rate = 0.1
 
-    def begin(self):
-      self._lrn_rate = 0.1
+        def before_run(self, run_context):
+            return tf.train.SessionRunArgs(
+                model.global_step,  # Asks for global step value.
+                feed_dict={model.lrn_rate: self._lrn_rate})  # Sets learning rate
 
-    def before_run(self, run_context):
-      return tf.train.SessionRunArgs(
-          model.global_step,  # Asks for global step value.
-          feed_dict={model.lrn_rate: self._lrn_rate})  # Sets learning rate
+        def after_run(self, run_context, run_values):
+            train_step = run_values.results
+            if train_step < 40000:
+                self._lrn_rate = 0.1
+            elif train_step < 60000:
+                self._lrn_rate = 0.01
+            elif train_step < 80000:
+                self._lrn_rate = 0.001
+            else:
+                self._lrn_rate = 0.0001
 
-    def after_run(self, run_context, run_values):
-      train_step = run_values.results
-      if train_step < 40000:
-        self._lrn_rate = 0.1
-      elif train_step < 60000:
-        self._lrn_rate = 0.01
-      elif train_step < 80000:
-        self._lrn_rate = 0.001
-      else:
-        self._lrn_rate = 0.0001
+    with tf.train.MonitoredTrainingSession(
+            save_checkpoint_secs=60*2,
+            checkpoint_dir=FLAGS.log_root,
+            hooks=[logging_hook, _LearningRateSetterHook()],
+            chief_only_hooks=[summary_hook],
+            # Since we provide a SummarySaverHook, we need to disable default
+            # SummarySaverHook. To do that we set save_summaries_steps to 0.
+            save_summaries_steps=0,
+            config=tf.ConfigProto(allow_soft_placement=True)) as mon_sess:
+        while not mon_sess.should_stop():
+            mon_sess.run(model.train_op)
 
-  with tf.train.MonitoredTrainingSession(
-      checkpoint_dir=FLAGS.log_root,
-      hooks=[logging_hook, _LearningRateSetterHook()],
-      chief_only_hooks=[summary_hook],
-      # Since we provide a SummarySaverHook, we need to disable default
-      # SummarySaverHook. To do that we set save_summaries_steps to 0.
-      save_summaries_steps=0,
-      config=tf.ConfigProto(allow_soft_placement=True)) as mon_sess:
-    while not mon_sess.should_stop():
-      mon_sess.run(model.train_op)
+def load_vae(images, labels, batch_size):
+    from collections import namedtuple
+    VAEHParams = namedtuple('HParams',
+                            'batch_size, num_classes, '
+                            'num_residual_units, weight_decay_rate, '
+                            'relu_leakiness, n_z')
 
+    vae_hps = VAEHParams(batch_size=batch_size,
+                         num_classes=10,
+                         num_residual_units=4,
+                         #              num_residual_units=2,
+                         weight_decay_rate=0.0002,
+                         relu_leakiness=0.1,
+                         n_z=2000)
+
+    trained_vae = vae_model.ResNet(vae_hps, images, labels, FLAGS.mode)
+    trained_vae.build_graph()
+    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+    tf.train.Saver().restore(sess, FLAGS.vae_prog_model_checkpoint)
+    return trained_vae
 
 def evaluate(hps):
-  """Eval loop."""
-  images, labels = cifar_input.build_input(
-      FLAGS.dataset, FLAGS.eval_data_path, hps.batch_size, FLAGS.mode)
-  model = classifier_model.ResNet(hps, images, labels, FLAGS.mode)
-  model.build_graph()
-  saver = tf.train.Saver()
-  summary_writer = tf.summary.FileWriter(FLAGS.log_root)
+    """Eval loop."""
+    images, labels = cifar_input.build_input(
+        FLAGS.dataset, FLAGS.eval_data_path, hps.batch_size, FLAGS.mode)
 
-  sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-  tf.train.start_queue_runners(sess)
+    if FLAGS.vae_prog:
+        trained_vae = load_vae(images, labels, hps.batch_size)
 
-  best_precision = 0.0
-  while True:
-    try:
-      ckpt_state = tf.train.get_checkpoint_state(FLAGS.log_root)
-    except tf.errors.OutOfRangeError as e:
-      tf.logging.error('Cannot restore checkpoint: %s', e)
-      continue
-    if not (ckpt_state and ckpt_state.model_checkpoint_path):
-      tf.logging.info('No model to eval yet at %s', FLAGS.log_root)
-      continue
-    tf.logging.info('Loading checkpoint %s', ckpt_state.model_checkpoint_path)
-    saver.restore(sess, ckpt_state.model_checkpoint_path)
+    model = classifier_model.ResNet(hps, images, labels, FLAGS.mode)
+    if FLAGS.vae_prog:
+        model.use_vae_prog = True
+        model.vae = trained_vae
+    else:
+        model.use_vae_prog = False
 
-    total_prediction, correct_prediction = 0, 0
-    for _ in six.moves.range(FLAGS.eval_batch_count):
-      (summaries, loss, predictions, truth, train_step) = sess.run(
-          [model.summaries, model.cost, model.predictions,
-           model.labels, model.global_step])
+    model.build_graph()
+    saver = tf.train.Saver()
+    summary_writer = tf.summary.FileWriter(FLAGS.eval_dir)
 
-      truth = np.argmax(truth, axis=1)
-      predictions = np.argmax(predictions, axis=1)
-      correct_prediction += np.sum(truth == predictions)
-      total_prediction += predictions.shape[0]
+    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+    tf.train.start_queue_runners(sess)
 
-    precision = 1.0 * correct_prediction / total_prediction
-    best_precision = max(precision, best_precision)
+    best_precision = 0.0
+    while True:
+        try:
+            ckpt_state = tf.train.get_checkpoint_state(FLAGS.log_root)
+        except tf.errors.OutOfRangeError as e:
+            tf.logging.error('Cannot restore checkpoint: %s', e)
+            continue
+        if not (ckpt_state and ckpt_state.model_checkpoint_path):
+            tf.logging.info('No model to eval yet at %s', FLAGS.log_root)
+            continue
+        tf.logging.info('Loading checkpoint %s', ckpt_state.model_checkpoint_path)
+        saver.restore(sess, ckpt_state.model_checkpoint_path)
 
-    precision_summ = tf.Summary()
-    precision_summ.value.add(
-        tag='Precision', simple_value=precision)
-    summary_writer.add_summary(precision_summ, train_step)
-    best_precision_summ = tf.Summary()
-    best_precision_summ.value.add(
-        tag='Best Precision', simple_value=best_precision)
-    summary_writer.add_summary(best_precision_summ, train_step)
-    summary_writer.add_summary(summaries, train_step)
-    tf.logging.info('loss: %.3f, precision: %.3f, best precision: %.3f' %
-                    (loss, precision, best_precision))
-    summary_writer.flush()
+        total_prediction, correct_prediction = 0, 0
+        for _ in six.moves.range(FLAGS.eval_batch_count):
+            (summaries, loss, predictions, truth, train_step) = sess.run(
+                [model.summaries, model.cost, model.predictions,
+                 model.labels, model.global_step])
 
-    if FLAGS.eval_once:
-      break
+            truth = np.argmax(truth, axis=1)
+            predictions = np.argmax(predictions, axis=1)
+            correct_prediction += np.sum(truth == predictions)
+            total_prediction += predictions.shape[0]
 
-    time.sleep(60)
+        precision = 1.0 * correct_prediction / total_prediction
+        best_precision = max(precision, best_precision)
+
+        precision_summ = tf.Summary()
+        precision_summ.value.add(
+            tag='Precision', simple_value=precision)
+        summary_writer.add_summary(precision_summ, train_step)
+        best_precision_summ = tf.Summary()
+        best_precision_summ.value.add(
+            tag='Best Precision', simple_value=best_precision)
+        summary_writer.add_summary(best_precision_summ, train_step)
+        summary_writer.add_summary(summaries, train_step)
+        tf.logging.info('loss: %.3f, precision: %.3f, best precision: %.3f' %
+                        (loss, precision, best_precision))
+        summary_writer.flush()
+
+        if FLAGS.eval_once:
+            break
+
+        time.sleep(60)
 
 
 def main(_):
-  if FLAGS.num_gpus == 0:
-    dev = '/cpu:0'
-  elif FLAGS.num_gpus == 1:
-    dev = '/gpu:0'
-  else:
-    raise ValueError('Only support 0 or 1 gpu.')
+    if FLAGS.num_gpus == 0:
+        dev = '/cpu:0'
+    elif FLAGS.num_gpus == 1:
+        dev = '/gpu:0'
+    else:
+        raise ValueError('Only support 0 or 1 gpu.')
 
-  if FLAGS.mode == 'train':
-    batch_size = 128
-  elif FLAGS.mode == 'eval':
-    batch_size = 100
-
-  if FLAGS.dataset == 'cifar10':
-    num_classes = 10
-  elif FLAGS.dataset == 'cifar100':
-    num_classes = 100
-
-  hps = classifier_model.HParams(
-      batch_size=batch_size,
-      num_classes=num_classes,
-      min_lrn_rate=0.0001,
-      lrn_rate=0.1,
-      num_residual_units=4,
-      use_bottleneck=False,
-      weight_decay_rate=0.0002,
-      relu_leakiness=0.1,
-      optimizer='mom')
-
-  with tf.device(dev):
     if FLAGS.mode == 'train':
-      train(hps)
+        batch_size = 64
     elif FLAGS.mode == 'eval':
-      evaluate(hps)
+        batch_size = 100
+
+    if FLAGS.dataset == 'cifar10':
+        num_classes = 10
+    elif FLAGS.dataset == 'cifar100':
+        num_classes = 100
+
+    hps = classifier_model.HParams(
+        batch_size=batch_size,
+        num_classes=num_classes,
+        min_lrn_rate=0.0001,
+        lrn_rate=0.1,
+        num_residual_units=4,
+        use_bottleneck=False,
+        weight_decay_rate=0.0002,
+        relu_leakiness=0.1,
+        optimizer='mom')
+
+    with tf.device(dev):
+        if FLAGS.mode == 'train':
+            train(hps)
+        elif FLAGS.mode == 'eval':
+            evaluate(hps)
 
 
 if __name__ == '__main__':
-  tf.logging.set_verbosity(tf.logging.INFO)
-  tf.app.run()
+    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.app.run()
