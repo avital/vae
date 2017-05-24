@@ -147,6 +147,7 @@ class ResNet(object):
     tf.summary.scalar('learning_rate', self.lrn_rate)
 
     trainable_variables = list(set(tf.trainable_variables()) - set(self.frozen_vars))
+    print("trainable_vars: {0}".format(trainable_variables))
     grads = tf.gradients(self.cost, trainable_variables)
 
     if self.hps.optimizer == 'sgd':
@@ -280,7 +281,7 @@ class ResNet(object):
     costs = []
     for var in tf.trainable_variables():
       print(var.op.name)
-      if var.op.name.find(r'DW') > 0 and var.op.name.find(r'encoder') == 0 and var.op.name.find(r'decoder') == 0:
+      if var.op.name.find(r'DW') > 0 and var.op.name.find(r'encoder') == -1 and var.op.name.find(r'decoder') == -1:
         costs.append(tf.nn.l2_loss(var))
         # tf.summary.histogram(var.op.name, var)
 
