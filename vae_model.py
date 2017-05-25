@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar100-wide-resnet-free-nats-0.25'
+MODEL_NAME = 'cifar-wide-resnet-free-nats-0.25'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')

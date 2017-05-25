@@ -2,12 +2,12 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-5-with-data-aug'
+EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-6-data-aug-cifar10'
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('dataset', 'cifar100', 'cifar10 or cifar100.')
+tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
-tf.app.flags.DEFINE_string('train_data_path', 'cifar100/train*',
+tf.app.flags.DEFINE_string('train_data_path', 'cifar10/data_batch*',
                            'Filepattern for training data.')
 tf.app.flags.DEFINE_string('eval_data_path', '',
                            'Filepattern for eval data')
