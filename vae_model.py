@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar-wide-resnet-free-nats-0.25'
+MODEL_NAME = 'cifar-wide-resnet-no-fc-free-nats-0.25'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -52,7 +52,7 @@ class ResNet(object):
         """
         self.hps = hps
         self._images = images
-        self.noise = tf.random_normal(shape=[hps.batch_size, hps.n_z], mean=0, stddev=1)
+        self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 128], mean=0, stddev=1)
         self.labels = labels
         self.mode = mode
 
@@ -123,10 +123,8 @@ class ResNet(object):
         print("last encoder x shape", x.get_shape())
 
         with tf.variable_scope('latent'):
-            with tf.variable_scope("z"):
-                self.z_mean_logstd = 0.1 * self._fully_connected(x, self.hps.n_z * 2)
-            with tf.variable_scope("z_mean"):
-                self.z_mean, self.z_logstd = tf.split(self.z_mean_logstd, 2, axis=1)
+            self.z_mean = 0.1 * self._conv('z_mean', x, 1, filters[3], filters[3], [1, 1, 1, 1])
+            self.z_logstd = 0.1 * self._conv('z_logstd', x, 1, filters[3], filters[3], [1, 1, 1, 1])
             self.z_logstd = tf.clip_by_value(self.z_logstd, -6, 6)
             self.z_std = tf.exp(self.z_logstd, name="z_std")
             self.z = self.noise * self.z_std + self.z_mean
@@ -138,9 +136,9 @@ class ResNet(object):
 
         with tf.variable_scope('init'):
             x = self.z
-            with tf.variable_scope("init_fc_to_correct_dim"):
-                x = self._fully_connected(x, 8 * 8 * filters[0])
-            x = tf.reshape(x, [-1, 8, 8, filters[0]])
+            #with tf.variable_scope("init_conv"):
+#                x = self._fully_connected(x, 8 * 8 * filters[0])
+#            x = tf.reshape(x, [-1, 8, 8, filters[0]])
             x = self._conv('init_conv', x, 3, filters[0], filters[0], self._stride_arr(1))
 
         with tf.variable_scope('unit_1_0'):
@@ -181,19 +179,20 @@ class ResNet(object):
 #            self.reconst_loss = tf.reduce_mean(self.reconst_loss)
 
             self.ind_kl_loss = 1 / 2 * (tf.square(self.z_mean) + tf.square(self.z_std) - 2 * self.z_logstd - 1)
-            self.base_kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=1)  # axis=0 is batch, axis=1 is z dim
-            self.ind_kl_loss = tf.maximum(0.25, self.ind_kl_loss)  # free nats
-            self.kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=1)  # axis=0 is batch, axis=1 is z dim
+            self.base_kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=[1,2,3])  # axis=0 is batch, axis=1 is z dim
+            self.kl_loss = tf.reduce_sum(tf.maximum(0.25, tf.reduce_mean(tf.reduce_sum(self.ind_kl_loss, axis=[1,2]), axis=0)))
+#            self.ind_kl_loss = tf.maximum(0.25, self.ind_kl_loss)  # free nats
+ #           self.kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=[1,2,3])  # axis=0 is batch, axis=1 is z dim
 #            self.kl_loss = tf.reduce_mean(self.kl_loss)
 
-            self.cost = self.reconst_loss + self.kl_loss
+            self.cost = tf.reduce_mean(self.reconst_loss, 0) + self.kl_loss
             self.base_cost = self.reconst_loss + self.base_kl_loss
 
             tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0))
-            tf.summary.scalar('kl_loss', tf.reduce_mean(self.kl_loss, 0))
-            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.kl_loss, 0))
-            tf.summary.scalar('cost', tf.reduce_mean(self.cost, 0))
-            tf.summary.scalar('base_cost', tf.reduce_mean(self.cost, 0))
+            tf.summary.scalar('kl_loss', self.kl_loss)
+#            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.kl_loss, 0))
+            tf.summary.scalar('cost', self.cost)
+#            tf.summary.scalar('base_cost', tf.reduce_mean(self.cost, 0))
 
     def _build_train_op(self):
         """Build training specific ops for the graph."""
