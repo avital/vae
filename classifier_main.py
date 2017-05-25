@@ -25,14 +25,14 @@ import classifier_model
 import tensorflow as tf
 import vae_model
 
-EXP_NAME='classifier-baseline-prog'
+EXP_NAME='classifier-baseline-prog-no-fc-vae-no-data-aug'
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('dataset', 'cifar100', 'cifar10 or cifar100.')
+tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
-tf.app.flags.DEFINE_string('train_data_path', 'cifar100/train*',
+tf.app.flags.DEFINE_string('train_data_path', 'cifar10/data_batch*',
                            'Filepattern for training data.')
-tf.app.flags.DEFINE_string('eval_data_path', 'cifar100/test*',
+tf.app.flags.DEFINE_string('eval_data_path', 'cifar10/test*',
                            'Filepattern for eval data')
 tf.app.flags.DEFINE_integer('image_size', 32, 'Image side length.')
 tf.app.flags.DEFINE_string('train_dir', 'logs/{0}/train'.format(EXP_NAME),
@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_integer('num_gpus', 1,
                             'Number of gpus used for training. (0 or 1)')
 tf.app.flags.DEFINE_bool('vae_prog', True,
                          'Concatenate parallel layers from a pre-trained VAE network')
-tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'vae-logs/cifar100-semiwide-resnet-vae-z-2000-free-nats-0.25/model.ckpt-108148',
+tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'logs/cifar-wide-resnet-no-fc-free-nats-0.25-4batch-2000z-7-no-data-aug-cifar10/model.ckpt-15140',
                            'Model checkpoint for pre-trained VAE')
 
 

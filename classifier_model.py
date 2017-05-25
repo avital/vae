@@ -76,7 +76,7 @@ class ResNet(object):
       x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
 
     if self.use_vae_prog:
-      x = tf.concat([x, self.vae.encoder0], axis=3)
+        x = tf.concat([x, self.vae.encoder0], axis=3)
 
     strides = [1, 2, 2]
     activate_before_residual = [True, False, False]
