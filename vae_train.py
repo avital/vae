@@ -171,7 +171,7 @@ def train():
       if step % 400 == 2:
         # estimate marginal log likelihood
         costs = []
-        for i in range(1000):
+        for i in range(300):
             costs_i = mon_sess.run(model.base_cost)
             costs.extend(costs_i)
         max_cost = np.max(costs)

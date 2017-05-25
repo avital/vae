@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar-wide-resnet-no-fc-free-nats-0.25'
+MODEL_NAME = 'cifar-truly-wide-resnet-no-fc-free-nats-0.25'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -52,7 +52,7 @@ class ResNet(object):
         """
         self.hps = hps
         self._images = images
-        self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 128], mean=0, stddev=1)
+        self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 640], mean=0, stddev=1)
         self.labels = labels
         self.mode = mode
 
@@ -87,7 +87,7 @@ class ResNet(object):
 
         strides = [1, 2, 2]
         activate_before_residual = [True, False, False]
-        filters = [16, 32, 64, 128]
+        filters = [16, 160, 320, 640]
 
         with tf.variable_scope('unit_1_0'):
             x = self._residual(x, filters[0], filters[1], self._stride_arr(strides[0]),
@@ -131,7 +131,7 @@ class ResNet(object):
 
     def _build_decoder(self):
         strides = [2, 2, 1]
-        filters = [128, 64, 32, 16]
+        filters = [640, 320, 160, 16]
         activate_before_residual = [True, False, False]
 
         with tf.variable_scope('init'):
@@ -172,9 +172,8 @@ class ResNet(object):
 
     def _build_cost(self):
         with tf.variable_scope('costs'):
-            # TODO: better loss function
-            self.reconst_loss = -self._images * tf.log(self.reconstructed_image + 1e-4) - (1 - self._images) * tf.log(
-                1 - self.reconstructed_image + 1e-4)
+            self.reconst_loss = -self._images * tf.log(self.reconstructed_image + 1e-6) - (1 - self._images) * tf.log(
+                1 - self.reconstructed_image + 1e-6)
             self.reconst_loss = tf.reduce_sum(self.reconst_loss, axis=[1, 2, 3])
 #            self.reconst_loss = tf.reduce_mean(self.reconst_loss)
 
