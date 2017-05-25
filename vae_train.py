@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-1'
+EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-5-with-data-aug'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar100', 'cifar10 or cifar100.')
@@ -128,8 +128,7 @@ def train():
       tensors={'step': model.global_step,
                'loss': model.cost,
                'reconst_loss': model.reconst_loss,
-               'kl_loss': model.kl_loss,
-               'l2_loss': model.l2_loss},
+               'kl_loss': model.kl_loss},
       every_n_iter=5)
 
   class _LearningRateSetterHook(tf.train.SessionRunHook):
@@ -169,24 +168,25 @@ def train():
     step = 0
     while not mon_sess.should_stop():
       step = step + 1
-#      _, input_images, z, reconstructed_images = mon_sess.run([model.train_op, model._images, model.z_mean, model.reconstructed_image])
-#      input_images, reconstructed_images = mon_sess.run([model._images, model.reconstructed_image])
-      if step % 10 == 1:
+      if step % 400 == 2:
+        # estimate marginal log likelihood
+        costs = []
+        for i in range(1000):
+            costs_i = mon_sess.run(model.base_cost)
+            costs.extend(costs_i)
+        max_cost = np.max(costs)
+        est_mar_likelihood = max_cost + np.log(np.mean(np.exp(costs - max_cost), 0))
+        print()
+        print()
+        print()
+        print("*****")
+        print("Estimated marginal negative log likelihood: {0} nats ({1} bits/dim)".format(est_mar_likelihood, est_mar_likelihood / 1024 / np.log(2)))
+        print("*****")
+        print(flush=True)
+      elif step % 10 == 1:
         _, __, summaries, input_images, reconstructed_images = mon_sess.run([check_op, model.train_op, model.summaries, model._images, model.reconstructed_image])
         summary_writer.add_summary(summaries, global_step=step)
         summary_writer.flush()
-        # XXX why did I need batch_size=32 here?
-#        synthesized_images = mon_sess.run(model.reconstructed_image, feed_dict={model.z: np.random.normal(size=[hps.batch_size] + hps.z_shape)})
-#        plt.subplot(131)
-#        plt.imshow(input_images[-1])
-#        plt.axis('off')
-#        plt.subplot(132)
-#        plt.imshow(reconstructed_images[-1])
-#        plt.axis('off')
-#        plt.subplot(133)
-#        plt.imshow(synthesized_images[-1])
-#        plt.show()
-#        print(np.histogram(z))
       else:
         mon_sess.run([check_op, model.train_op])
 

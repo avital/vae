@@ -38,9 +38,6 @@ import six
 
 from tensorflow.python.training import moving_averages
 
-# TODO: remove l2 decay from generator
-
-
 class ResNet(object):
     """ResNet model."""
 
@@ -67,13 +64,9 @@ class ResNet(object):
         with tf.variable_scope('encoder'):
             self._build_encoder()
         with tf.variable_scope('decoder'):
-            #      self._build_decoder_mlp()
             self._build_decoder()
         with tf.variable_scope('cost'):
             self._build_cost()
-
-        # with tf.variable_scope('simple'):
-        #      self._simple_reconst()
 
         if self.mode == 'train':
             self._build_train_op()
@@ -185,23 +178,22 @@ class ResNet(object):
             self.reconst_loss = -self._images * tf.log(self.reconstructed_image + 1e-4) - (1 - self._images) * tf.log(
                 1 - self.reconstructed_image + 1e-4)
             self.reconst_loss = tf.reduce_sum(self.reconst_loss, axis=[1, 2, 3])
-            self.reconst_loss = tf.reduce_mean(self.reconst_loss)
+#            self.reconst_loss = tf.reduce_mean(self.reconst_loss)
 
             self.ind_kl_loss = 1 / 2 * (tf.square(self.z_mean) + tf.square(self.z_std) - 2 * self.z_logstd - 1)
+            self.base_kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=1)  # axis=0 is batch, axis=1 is z dim
             self.ind_kl_loss = tf.maximum(0.25, self.ind_kl_loss)  # free nats
             self.kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=1)  # axis=0 is batch, axis=1 is z dim
-            self.kl_loss = tf.reduce_mean(self.kl_loss)
-            #      self.kl_loss = tf.constant(0, tf.float32)
-
-            # TODO: Same decay?
-            self.l2_loss = tf.constant(0, tf.float32)
+#            self.kl_loss = tf.reduce_mean(self.kl_loss)
 
             self.cost = self.reconst_loss + self.kl_loss
+            self.base_cost = self.reconst_loss + self.base_kl_loss
 
-            tf.summary.scalar('reconst_loss', self.reconst_loss)
-            tf.summary.scalar('kl_loss', self.kl_loss)
-            tf.summary.scalar('l2_loss', self.l2_loss)
-            tf.summary.scalar('cost', self.cost)
+            tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0))
+            tf.summary.scalar('kl_loss', tf.reduce_mean(self.kl_loss, 0))
+            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.kl_loss, 0))
+            tf.summary.scalar('cost', tf.reduce_mean(self.cost, 0))
+            tf.summary.scalar('base_cost', tf.reduce_mean(self.cost, 0))
 
     def _build_train_op(self):
         """Build training specific ops for the graph."""
@@ -210,8 +202,6 @@ class ResNet(object):
 
         trainable_variables = tf.trainable_variables()
         grads = tf.gradients(self.cost, trainable_variables)
-        #    grads = tf.gradients(self.simple_reconst_loss, trainable_variables)
-
         optimizer = tf.train.AdamOptimizer(learning_rate=self.lrn_rate, epsilon=1e-3)
 
         apply_op = optimizer.apply_gradients(
@@ -261,7 +251,7 @@ class ResNet(object):
                     trainable=False)
                 tf.summary.histogram(mean.op.name, mean)
                 tf.summary.histogram(variance.op.name, variance)
-            # elipson used to be 1e-5. Maybe 0.001 solves NaN problem in deeper net.
+            # epsilon used to be 1e-5. Maybe 0.001 solves NaN problem in deeper net.
             y = tf.nn.batch_normalization(
                 x, mean, variance, beta, gamma, 0.001)
             y.set_shape(x.get_shape())

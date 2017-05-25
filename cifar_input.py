@@ -64,6 +64,8 @@ def build_input(dataset, data_path, batch_size, mode):
   image = tf.cast(tf.transpose(depth_major, [1, 2, 0]), tf.float32)
 
   if mode == 'train':
+#    image = tf.image.resize_image_with_crop_or_pad(
+#        image, image_size, image_size)
     image = tf.image.resize_image_with_crop_or_pad(
         image, image_size+4, image_size+4)
     image = tf.random_crop(image, [image_size, image_size, 3])
@@ -84,7 +86,8 @@ def build_input(dataset, data_path, batch_size, mode):
   else:
     image = tf.image.resize_image_with_crop_or_pad(
         image, image_size, image_size)
-    image = tf.image.per_image_standardization(image)
+#    image = tf.image.per_image_standardization(image)
+    image = image / 255.0
 
     example_queue = tf.FIFOQueue(
         3 * batch_size,
