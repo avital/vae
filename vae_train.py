@@ -5,14 +5,14 @@ import vae_model
 EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-1'
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
+tf.app.flags.DEFINE_string('dataset', 'cifar100', 'cifar10 or cifar100.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
-tf.app.flags.DEFINE_string('train_data_path', 'cifar10/data_batch*',
+tf.app.flags.DEFINE_string('train_data_path', 'cifar100/train*',
                            'Filepattern for training data.')
 tf.app.flags.DEFINE_string('eval_data_path', '',
                            'Filepattern for eval data')
 tf.app.flags.DEFINE_integer('image_size', 32, 'Image side length.')
-tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
+tf.app.flags.DEFINE_string('train_dir', './logs/{0}/train'.format(EXP_NAME),
                            'Directory to keep training outputs.')
 tf.app.flags.DEFINE_string('eval_dir', '',
                            'Directory to keep eval outputs.')
@@ -146,14 +146,14 @@ def train():
     def after_run(self, run_context, run_values):
       train_step = run_values.results
     
-      #if train_step < 40000:
-      #  self._lrn_rate = 1e-4
-      #elif train_step < 60000:
-      #  self._lrn_rate = 3e-4
-      #elif train_step < 80000:
-      #  self._lrn_rate = 3e-5
-      #else:
-      #  self._lrn_rate = 3e-6
+      if train_step < 20000:
+        self._lrn_rate = 1e-4
+      elif train_step < 40000:
+        self._lrn_rate = 1e-5
+      elif train_step < 60000:
+        self._lrn_rate = 1e-6
+      else:
+        self._lrn_rate = 1e-7
   with tf.train.MonitoredTrainingSession(
       checkpoint_dir=FLAGS.log_root,
       hooks=[logging_hook, _LearningRateSetterHook()],

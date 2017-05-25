@@ -28,11 +28,11 @@ import vae_model
 EXP_NAME='classifier-baseline-prog'
 
 FLAGS = tf.app.flags.FLAGS
-tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
+tf.app.flags.DEFINE_string('dataset', 'cifar100', 'cifar10 or cifar100.')
 tf.app.flags.DEFINE_string('mode', 'train', 'train or eval.')
-tf.app.flags.DEFINE_string('train_data_path', 'cifar10/data_batch*',
+tf.app.flags.DEFINE_string('train_data_path', 'cifar100/train*',
                            'Filepattern for training data.')
-tf.app.flags.DEFINE_string('eval_data_path', 'cifar10/test_batch*',
+tf.app.flags.DEFINE_string('eval_data_path', 'cifar100/test*',
                            'Filepattern for eval data')
 tf.app.flags.DEFINE_integer('image_size', 32, 'Image side length.')
 tf.app.flags.DEFINE_string('train_dir', 'logs/{0}/train'.format(EXP_NAME),
@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_integer('num_gpus', 1,
                             'Number of gpus used for training. (0 or 1)')
 tf.app.flags.DEFINE_bool('vae_prog', True,
                          'Concatenate parallel layers from a pre-trained VAE network')
-tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'vae-logs/cifar10-semiwide-resnet-vae-z-2000-free-nats-0.25-bn-lrn-anneal1/model.ckpt-108148',
+tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'vae-logs/cifar100-semiwide-resnet-vae-z-2000-free-nats-0.25/model.ckpt-108148',
                            'Model checkpoint for pre-trained VAE')
 
 
@@ -139,7 +139,7 @@ def load_vae(images, labels, batch_size):
                             'relu_leakiness, n_z')
 
     vae_hps = VAEHParams(batch_size=batch_size,
-                         num_classes=10,
+                         num_classes=100,
                          num_residual_units=4,
                          #              num_residual_units=2,
                          weight_decay_rate=0.0002,

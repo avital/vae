@@ -49,8 +49,6 @@ def build_input(dataset, data_path, batch_size, mode):
   record_bytes = label_bytes + label_offset + image_bytes
 
   data_files = tf.gfile.Glob(data_path)
-  print(data_path)
-  print(data_files)
   file_queue = tf.train.string_input_producer(data_files, shuffle=True)
   # Read examples from files in the filename queue.
   reader = tf.FixedLengthRecordReader(record_bytes=record_bytes)
@@ -65,15 +63,34 @@ def build_input(dataset, data_path, batch_size, mode):
   # Convert from [depth, height, width] to [height, width, depth].
   image = tf.cast(tf.transpose(depth_major, [1, 2, 0]), tf.float32)
 
-  image = tf.image.resize_image_with_crop_or_pad(
-      image, image_size, image_size)
-  image = image / 255.0
+  if mode == 'train':
+    image = tf.image.resize_image_with_crop_or_pad(
+        image, image_size+4, image_size+4)
+    image = tf.random_crop(image, [image_size, image_size, 3])
+    image = tf.image.random_flip_left_right(image)
+    # Brightness/saturation/constrast provides small gains .2%~.5% on cifar.
+    image = tf.image.random_brightness(image, max_delta=63. / 255.)
+    image = tf.image.random_saturation(image, lower=0.5, upper=1.5)
+    image = tf.image.random_contrast(image, lower=0.2, upper=1.8)
+#    image = tf.image.per_image_standardization(image)
+    image = image / 255.0
 
-  example_queue = tf.FIFOQueue(
-      3 * batch_size,
-      dtypes=[tf.float32, tf.int32],
-      shapes=[[image_size, image_size, depth], [1]])
-  num_threads = 12
+    example_queue = tf.RandomShuffleQueue(
+        capacity=16 * batch_size,
+        min_after_dequeue=8 * batch_size,
+        dtypes=[tf.float32, tf.int32],
+        shapes=[[image_size, image_size, depth], [1]])
+    num_threads = 16
+  else:
+    image = tf.image.resize_image_with_crop_or_pad(
+        image, image_size, image_size)
+    image = tf.image.per_image_standardization(image)
+
+    example_queue = tf.FIFOQueue(
+        3 * batch_size,
+        dtypes=[tf.float32, tf.int32],
+        shapes=[[image_size, image_size, depth], [1]])
+    num_threads = 1
 
   example_enqueue_op = example_queue.enqueue([image, label])
   tf.train.add_queue_runner(tf.train.queue_runner.QueueRunner(

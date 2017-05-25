@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar10-wide-resnet-free-nats-0.25'
+MODEL_NAME = 'cifar100-wide-resnet-free-nats-0.25'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -86,8 +86,7 @@ class ResNet(object):
     def _build_encoder(self):
         """Build the core model within the graph."""
         with tf.variable_scope('init'):
-            x = self._images
-            x = x - 0.5
+            x = self._images - 0.5
             print("encoder first shape: ", x.get_shape())
             x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
 
@@ -138,32 +137,6 @@ class ResNet(object):
             self.z_logstd = tf.clip_by_value(self.z_logstd, -6, 6)
             self.z_std = tf.exp(self.z_logstd, name="z_std")
             self.z = self.noise * self.z_std + self.z_mean
-
-    def _build_decoder_mlp(self):
-        x = self.z
-        with tf.variable_scope("init_fc_to_correct_dim"):
-            x = self._fully_connected(x, 32 * 32 * 3)
-            x = self._relu(x, self.hps.relu_leakiness)
-
-        with tf.variable_scope("mlp1"):
-            x = self._fully_connected(x, 32 * 32 * 3)
-            x = self._relu(x, self.hps.relu_leakiness)
-
-        with tf.variable_scope("mlp2"):
-            x = self._fully_connected(x, 32 * 32 * 3)
-            x = self._relu(x, self.hps.relu_leakiness)
-
-        with tf.variable_scope("mlp3"):
-            x = self._fully_connected(x, 32 * 32 * 3)
-        # x = self._relu(x, self.hps.relu_leakiness)
-
-        x = tf.reshape(x, [-1, 32, 32, 3])
-        x = tf.sigmoid(x)
-        self.reconstructed_image = x
-        tf.summary.image("reconstructed", x)
-
-        x = tf.reshape(x, [-1, 32, 32, 3])
-        return x
 
     def _build_decoder(self):
         strides = [2, 2, 1]
@@ -395,26 +368,6 @@ class ResNet(object):
             x = tf.transpose(x, [0, 1, 4, 2, 5, 3])
             x = tf.reshape(x, [shape[0], shape[1] * strides[1], shape[2] * strides[2], shape[3] // np.prod(strides)])
             return x
-
-            #  def _simple_reconst(self):
-
-            #    x = self._images
-            #    x = self._conv('conv', x, 3, 3, 12, [1, 2, 2, 1])
-            #    x = self._relu(x, 0.1)
-            #    # 1x1 conv
-            #    x = self._conv('conv1_1', x, 1, 12, 12, [1, 1, 1, 1])
-            #    x = self._relu(x, 0.1)
-
-            #    x = self._conv_subpixel('conv_subpixel', x, 3, 12, 3, [1, 2, 2, 1])
-            #    x = self._relu(x, 0.1)
-            #    # 1x1 conv
-            #    x = self._conv('conv1_2', x, 1, 3, 3, [1, 1, 1, 1])
-            #    x = tf.sigmoid(x)
-
-            #    self.simple_reconst = x
-            #    self.simple_reconst_loss = -self._images * tf.log(x + 1e-4) - (1-self._images) * tf.log(1-x + 1e-4)
-            #    self.simple_reconst_loss = tf.reduce_sum(self.simple_reconst_loss, axis=[1, 2, 3])
-            #    self.simple_reconst_loss = tf.reduce_mean(self.simple_reconst_loss)
 
     def _relu(self, x, leakiness=0.0):
         """Relu, with optional leaky support."""

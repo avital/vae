@@ -72,8 +72,7 @@ class ResNet(object):
     print("Frozen vars: {0}".format(self.frozen_vars))
 
     with tf.variable_scope('init'):
-      x = self._images
-      x = x - 0.5
+      x = self._images - 0.5
       x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
 
     if self.use_vae_prog:
