@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-6-data-aug-cifar10'
+EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-7-no-data-aug-cifar10'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
