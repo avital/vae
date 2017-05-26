@@ -62,6 +62,7 @@ class ResNet(object):
         """Build a whole graph for the model."""
         self.global_step = tf.contrib.framework.get_or_create_global_step()
         self.summaries = []
+        self.reconst_summaries = []
 
         with tf.variable_scope('logistic'):
             self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(10/255.), dtype=tf.float32))
@@ -77,7 +78,7 @@ class ResNet(object):
 
         if self.mode == 'train':
             self._build_train_op()
-        self.summaries_merged = tf.summary.merge(self.summaries + [self.reconstructed_summary, self.reconst_loss_summary, self.images_summary])
+        self.summaries_merged = tf.summary.merge(self.summaries + self.reconst_summaries)
         self.summaries_merged_sampled = tf.summary.merge(self.summaries + [self.sampled_summary])
 
     def _stride_arr(self, stride):
@@ -87,7 +88,7 @@ class ResNet(object):
     def _build_encoder(self):
         """Build the core model within the graph."""
         with tf.variable_scope('init'):
-            self.images_summary = tf.summary.image('images', self._images)
+            self.reconst_summaries.append(tf.summary.image('images', self._images))
             x = self._images - 0.5
             print("encoder first shape: ", x.get_shape())
             x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
@@ -176,7 +177,7 @@ class ResNet(object):
         x = tf.sigmoid(x * 0.1)
         self.reconstructed_image = x
 
-        self.reconstructed_summary = tf.summary.image("reconstructed", x)
+        self.reconst_summaries.append(tf.summary.image("reconstructed", x))
         self.sampled_summary = tf.summary.image("sampled", x)
 
         print("decoder last shape: ", x.get_shape())
@@ -202,11 +203,12 @@ class ResNet(object):
             self.cost = tf.reduce_mean(self.reconst_loss + self.kl_loss, axis=0)
             self.base_cost = self.reconst_loss + self.base_kl_loss
 
-            self.reconst_loss_summary = tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0))
+
+            self.reconst_summaries.append(tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0)))
             self.summaries.append(tf.summary.scalar('kl_loss', self.kl_loss))
             self.summaries.append(tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.base_kl_loss, 0)))
-            self.summaries.append(tf.summary.scalar('cost', self.cost))
-            self.summaries.append(tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0)))
+            self.reconst_summaries.append(tf.summary.scalar('cost', self.cost))
+            self.reconst_summaries.append(tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0)))
 
             self.est_mar_nll_bits_per_subpixel = tf.placeholder(tf.float32)
             self.summaries.append(tf.summary.scalar('est_marginal_nll_bits_per_subpixel', self.est_mar_nll_bits_per_subpixel))

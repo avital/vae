@@ -152,7 +152,7 @@ def train():
       # SummarySaverHook. To do that we set save_summaries_steps to 0.
       save_summaries_steps=0,
       is_chief=True,
-      save_checkpoint_secs=60 * 10,
+      save_checkpoint_secs=60 * 5,
       config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as mon_sess:
 
 #    mon_sess.run(init_op)
@@ -161,10 +161,10 @@ def train():
     est_mar_nll_bits_per_subpixel = np.nan
     while not mon_sess.should_stop():
       step = step + 1
-      if step % 400 == 1:
+      if step % 800 == 1:
         # estimate marginal log likelihood
         costs = []
-        for i in range(10):
+        for i in range(15):
             costs_i = mon_sess.run(model.base_cost)
             costs.extend(costs_i)
         max_cost = np.max(costs)
