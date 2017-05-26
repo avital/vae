@@ -163,7 +163,7 @@ def train():
       save_checkpoint_secs=60 * 10,
       config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=True)) as mon_sess:
 
-    mon_sess.run(init_op)
+#    mon_sess.run(init_op)
 
     step = 0
     while not mon_sess.should_stop():
@@ -184,8 +184,8 @@ def train():
         print("*****")
         print(flush=True)
       elif step % 10 == 1:
-        _, __, summaries, input_images, reconstructed_images = mon_sess.run([check_op, model.train_op, model.summaries, model._images, model.reconstructed_image])
-        summary_writer.add_summary(summaries, global_step=step)
+        _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run([check_op, model.train_op, model.summaries, model._images, model.reconstructed_image, model.global_step])
+        summary_writer.add_summary(summaries, global_step=global_step)
         summary_writer.flush()
       else:
         mon_sess.run([check_op, model.train_op])
