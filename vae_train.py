@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-32batch-lrnrate-3e-4'
+EXP_NAME = vae_model.MODEL_NAME + '-32batch-lrnrate-1e-3'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -135,7 +135,7 @@ def train():
     """Sets learning_rate based on global step."""
 
     def begin(self):
-      self._lrn_rate = 3e-4
+      self._lrn_rate = 1e-3
 
     def before_run(self, run_context):
       return tf.train.SessionRunArgs(
