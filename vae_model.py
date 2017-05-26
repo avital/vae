@@ -63,7 +63,7 @@ class ResNet(object):
         self.global_step = tf.contrib.framework.get_or_create_global_step()
 
         with tf.variable_scope('logistic'):
-            self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(100/255.), dtype=tf.float32))
+            self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(10*np.log(10./255.), dtype=tf.float32))
             self.logistic_s = tf.exp(tf.clip_by_value(0.1 * self.logistic_logs, -6, 6))
             tf.summary.scalar('logistic_s', self.logistic_s)
 

@@ -128,7 +128,8 @@ def train():
       tensors={'step': model.global_step,
                'loss': model.cost,
                'reconst_loss': model.reconst_loss,
-               'kl_loss': model.kl_loss},
+               'kl_loss': model.kl_loss,
+               'logistic_s': model.logistic_s},
       every_n_iter=5)
 
   class _LearningRateSetterHook(tf.train.SessionRunHook):
