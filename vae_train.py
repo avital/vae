@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-4batch'
+EXP_NAME = vae_model.MODEL_NAME + '-64batch'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -66,7 +66,7 @@ import vae_model
 
 import cifar_input
 
-hps = HParams(batch_size=4,
+hps = HParams(batch_size=64,
               num_classes=10,
               num_residual_units=4,
 #              num_residual_units=2,
