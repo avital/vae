@@ -66,7 +66,7 @@ import vae_model
 
 import cifar_input
 
-hps = HParams(batch_size=32,
+hps = HParams(batch_size=28,
               num_classes=10,
               num_residual_units=4,
 #              num_residual_units=2,
@@ -135,7 +135,7 @@ def train():
     """Sets learning_rate based on global step."""
 
     def begin(self):
-      self._lrn_rate = 1e-3
+      self._lrn_rate = 1e-4
 
     def before_run(self, run_context):
       return tf.train.SessionRunArgs(
@@ -144,15 +144,7 @@ def train():
 
     def after_run(self, run_context, run_values):
       train_step = run_values.results
-    
-      if train_step < 20000:
-        self._lrn_rate = 1e-4
-      elif train_step < 40000:
-        self._lrn_rate = 1e-5
-      elif train_step < 60000:
-        self._lrn_rate = 1e-6
-      else:
-        self._lrn_rate = 1e-7
+
   with tf.train.MonitoredTrainingSession(
       checkpoint_dir=FLAGS.log_root,
       hooks=[logging_hook, _LearningRateSetterHook()],
