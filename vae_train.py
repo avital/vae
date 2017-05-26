@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-32batch'
+EXP_NAME = vae_model.MODEL_NAME + '-32batch-lrnrate-3e-4'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -135,7 +135,7 @@ def train():
     """Sets learning_rate based on global step."""
 
     def begin(self):
-      self._lrn_rate = 1e-3
+      self._lrn_rate = 3e-4
 
     def before_run(self, run_context):
       return tf.train.SessionRunArgs(
@@ -145,14 +145,14 @@ def train():
     def after_run(self, run_context, run_values):
       train_step = run_values.results
     
-      if train_step < 20000:
-        self._lrn_rate = 1e-4
-      elif train_step < 40000:
-        self._lrn_rate = 1e-5
-      elif train_step < 60000:
-        self._lrn_rate = 1e-6
-      else:
-        self._lrn_rate = 1e-7
+#      if train_step < 20000:
+#        self._lrn_rate = 3e-4
+#      elif train_step < 40000:
+#        self._lrn_rate = 3e-5
+#      elif train_step < 60000:
+#        self._lrn_rate = 3e-6
+#      else:
+#        self._lrn_rate = 3e-7
   with tf.train.MonitoredTrainingSession(
       checkpoint_dir=FLAGS.log_root,
       hooks=[logging_hook, _LearningRateSetterHook()],

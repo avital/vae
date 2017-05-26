@@ -25,7 +25,7 @@ import classifier_model
 import tensorflow as tf
 import vae_model
 
-EXP_NAME='classifier-baseline-prog-no-fc-vae-no-data-aug'
+EXP_NAME='classifier-baseline-no-data-aug'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -48,7 +48,7 @@ tf.app.flags.DEFINE_string('log_root', 'logs/{0}'.format(EXP_NAME),
                            'parent directory of FLAGS.train_dir/eval_dir.')
 tf.app.flags.DEFINE_integer('num_gpus', 1,
                             'Number of gpus used for training. (0 or 1)')
-tf.app.flags.DEFINE_bool('vae_prog', True,
+tf.app.flags.DEFINE_bool('vae_prog', False,
                          'Concatenate parallel layers from a pre-trained VAE network')
 tf.app.flags.DEFINE_string('vae_prog_model_checkpoint', 'logs/cifar-wide-resnet-no-fc-free-nats-0.25-4batch-2000z-7-no-data-aug-cifar10/model.ckpt-15140',
                            'Model checkpoint for pre-trained VAE')
