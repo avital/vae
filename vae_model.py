@@ -61,11 +61,12 @@ class ResNet(object):
     def build_graph(self):
         """Build a whole graph for the model."""
         self.global_step = tf.contrib.framework.get_or_create_global_step()
+        self.summaries = []
 
         with tf.variable_scope('logistic'):
             self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(10/255.), dtype=tf.float32))
             self.logistic_s = tf.exp(tf.clip_by_value(self.logistic_logs, -6, 6))
-            tf.summary.scalar('logistic_s', self.logistic_s)
+            self.summaries.append(tf.summary.scalar('logistic_s', self.logistic_s))
 
         with tf.variable_scope('encoder'):
             self._build_encoder()
@@ -76,7 +77,8 @@ class ResNet(object):
 
         if self.mode == 'train':
             self._build_train_op()
-        self.summaries = tf.summary.merge_all()
+        self.summaries_merged = tf.summary.merge(self.summaries + [self.reconstructed_summary])
+        self.summaries_merged_sampled = tf.summary.merge(self.summaries + [self.sampled_summary])
 
     def _stride_arr(self, stride):
         """Map a stride scalar to the stride array for tf.nn.conv2d."""
@@ -172,7 +174,9 @@ class ResNet(object):
         x = self._conv('to_image', x, 1, filters[3], 3, [1, 1, 1, 1])
         x = tf.sigmoid(x * 0.1)
         self.reconstructed_image = x
-        tf.summary.image("reconstructed", x)
+
+        self.reconstructed_summary = tf.summary.image("reconstructed", x)
+        self.sampled_summary = tf.summary.image("sampled", x)
 
         print("decoder last shape: ", x.get_shape())
 
@@ -197,19 +201,19 @@ class ResNet(object):
             self.cost = tf.reduce_mean(self.reconst_loss + self.kl_loss, axis=0)
             self.base_cost = self.reconst_loss + self.base_kl_loss
 
-            tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0))
-            tf.summary.scalar('kl_loss', self.kl_loss)
-            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.base_kl_loss, 0))
-            tf.summary.scalar('cost', self.cost)
-            tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0))
+            self.summaries.append(tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0)))
+            self.summaries.append(tf.summary.scalar('kl_loss', self.kl_loss))
+            self.summaries.append(tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.base_kl_loss, 0)))
+            self.summaries.append(tf.summary.scalar('cost', self.cost))
+            self.summaries.append(tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0)))
 
             self.est_mar_nll_bits_per_subpixel = tf.placeholder(tf.float32)
-            tf.summary.scalar('est_marginal_nll_bits_per_subpixel', self.est_mar_nll_bits_per_subpixel)
+            self.summaries.append(tf.summary.scalar('est_marginal_nll_bits_per_subpixel', self.est_mar_nll_bits_per_subpixel))
 
     def _build_train_op(self):
         """Build training specific ops for the graph."""
         self.lrn_rate = tf.constant(0, tf.float32)
-        tf.summary.scalar('learning_rate', self.lrn_rate)
+        self.summaries.append(tf.summary.scalar('learning_rate', self.lrn_rate))
 
         trainable_variables = tf.trainable_variables()
         grads = tf.gradients(self.cost, trainable_variables)
@@ -260,8 +264,8 @@ class ResNet(object):
                     'moving_variance', params_shape, tf.float32,
                     initializer=tf.constant_initializer(1.0, tf.float32),
                     trainable=False)
-                tf.summary.histogram(mean.op.name, mean)
-                tf.summary.histogram(variance.op.name, variance)
+                self.summaries.append(tf.summary.histogram(mean.op.name, mean))
+                self.summaries.append(tf.summary.histogram(variance.op.name, variance))
             # epsilon used to be 1e-5. Maybe 0.001 solves NaN problem in deeper net.
             y = tf.nn.batch_normalization(
                 x, mean, variance, beta, gamma, 0.001)

@@ -184,14 +184,23 @@ def train():
         print("*****")
         print(flush=True)
 
-        est_mar_nll_bits_per_subpixel = est_mar_likelihood / 1024 / np.log(2)
+        est_mar_nll_bits_per_subpixel = est_mar_likelihood / 3072 / np.log(2)
         print("Estimated marginal negative log likelihood: {0} nats ({1} bits/dim)".format(est_mar_likelihood, est_mar_nll_bits_per_subpixel))
-        summaries, global_step = mon_sess.run([model.summaries, model.global_step], feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
+        summaries, global_step = mon_sess.run([model.summaries_merged, model.global_step], feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
         summary_writer.add_summary(summaries, global_step=global_step)
         summary_writer.flush()
-      elif step % 10 == 1:
+      elif step % 50 == 1:
+        # sample
         _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run(
-            [check_op, model.train_op, model.summaries, model._images, model.reconstructed_image, model.global_step],
+            [check_op, model.train_op, model.summaries_merged_sampled, model._images, model.reconstructed_image, model.global_step],
+            feed_dict={model.z: np.random.normal(size=[hps.batch_size, 8, 8, 640]),
+                       model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
+        summary_writer.add_summary(summaries, global_step=global_step)
+        summary_writer.flush()
+
+        # reconstruction
+        _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run(
+            [check_op, model.train_op, model.summaries_merged, model._images, model.reconstructed_image, model.global_step],
             feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
         summary_writer.add_summary(summaries, global_step=global_step)
         summary_writer.flush()
