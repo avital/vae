@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-4batch-2000z-7-no-data-aug-cifar10'
+EXP_NAME = vae_model.MODEL_NAME + '-4batch'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -171,7 +171,7 @@ def train():
       if step % 400 == 2:
         # estimate marginal log likelihood
         costs = []
-        for i in range(300):
+        for i in range(100):
             costs_i = mon_sess.run(model.base_cost)
             costs.extend(costs_i)
         max_cost = np.max(costs)

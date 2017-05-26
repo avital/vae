@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar-truly-wide-resnet-no-fc-free-nats-0.25'
+MODEL_NAME = 'cifar-wide-resnet-1-logistic-decoder-3'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -61,6 +61,12 @@ class ResNet(object):
     def build_graph(self):
         """Build a whole graph for the model."""
         self.global_step = tf.contrib.framework.get_or_create_global_step()
+
+        with tf.variable_scope('logistic'):
+            self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(10/255.), dtype=tf.float32))
+            self.logistic_s = tf.exp(tf.clip_by_value(self.logistic_logs, -6, 6))
+            tf.summary.scalar('logistic_s', self.logistic_s)
+
         with tf.variable_scope('encoder'):
             self._build_encoder()
         with tf.variable_scope('decoder'):
@@ -172,10 +178,14 @@ class ResNet(object):
 
     def _build_cost(self):
         with tf.variable_scope('costs'):
-            self.reconst_loss = -self._images * tf.log(self.reconstructed_image + 1e-6) - (1 - self._images) * tf.log(
-                1 - self.reconstructed_image + 1e-6)
-            self.reconst_loss = tf.reduce_sum(self.reconst_loss, axis=[1, 2, 3])
-#            self.reconst_loss = tf.reduce_mean(self.reconst_loss)
+            image_low_value = tf.floor(self._images * 254.9999) / 255.
+            image_high_value = image_low_value + 1 / 255.
+            def cdf(x, mu):
+                return tf.sigmoid((x - mu) / self.logistic_s)
+            low_cdf = cdf(image_low_value, self.reconstructed_image)
+            high_cdf = cdf(image_high_value, self.reconstructed_image)
+            self.logpx_z = -tf.log(1e-6 + high_cdf - low_cdf)
+            self.reconst_loss = tf.reduce_sum(self.logpx_z, axis=[1,2,3])
 
             self.ind_kl_loss = 1 / 2 * (tf.square(self.z_mean) + tf.square(self.z_std) - 2 * self.z_logstd - 1)
             self.base_kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=[1,2,3])  # axis=0 is batch, axis=1 is z dim
@@ -184,14 +194,14 @@ class ResNet(object):
  #           self.kl_loss = tf.reduce_sum(self.ind_kl_loss, axis=[1,2,3])  # axis=0 is batch, axis=1 is z dim
 #            self.kl_loss = tf.reduce_mean(self.kl_loss)
 
-            self.cost = tf.reduce_mean(self.reconst_loss, 0) + self.kl_loss
+            self.cost = tf.reduce_mean(self.reconst_loss + self.kl_loss, axis=0)
             self.base_cost = self.reconst_loss + self.base_kl_loss
 
             tf.summary.scalar('reconst_loss', tf.reduce_mean(self.reconst_loss, 0))
             tf.summary.scalar('kl_loss', self.kl_loss)
-#            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.kl_loss, 0))
+            tf.summary.scalar('base_kl_loss', tf.reduce_mean(self.base_kl_loss, 0))
             tf.summary.scalar('cost', self.cost)
-#            tf.summary.scalar('base_cost', tf.reduce_mean(self.cost, 0))
+            tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0))
 
     def _build_train_op(self):
         """Build training specific ops for the graph."""
