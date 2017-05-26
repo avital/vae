@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-64batch'
+EXP_NAME = vae_model.MODEL_NAME + '-32batch'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -66,7 +66,7 @@ import vae_model
 
 import cifar_input
 
-hps = HParams(batch_size=64,
+hps = HParams(batch_size=32,
               num_classes=10,
               num_residual_units=4,
 #              num_residual_units=2,
@@ -171,7 +171,7 @@ def train():
       if step % 400 == 2:
         # estimate marginal log likelihood
         costs = []
-        for i in range(100):
+        for i in range(10):
             costs_i = mon_sess.run(model.base_cost)
             costs.extend(costs_i)
         max_cost = np.max(costs)
