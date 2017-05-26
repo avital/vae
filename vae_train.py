@@ -166,9 +166,10 @@ def train():
 #    mon_sess.run(init_op)
 
     step = 0
+    est_mar_nll_bits_per_subpixel = np.nan
     while not mon_sess.should_stop():
       step = step + 1
-      if step % 400 == 2:
+      if step % 400 == 1:
         # estimate marginal log likelihood
         costs = []
         for i in range(10):
@@ -180,15 +181,22 @@ def train():
         print()
         print()
         print("*****")
-        print("Estimated marginal negative log likelihood: {0} nats ({1} bits/dim)".format(est_mar_likelihood, est_mar_likelihood / 1024 / np.log(2)))
         print("*****")
         print(flush=True)
+
+        est_mar_nll_bits_per_subpixel = est_mar_likelihood / 1024 / np.log(2)
+        print("Estimated marginal negative log likelihood: {0} nats ({1} bits/dim)".format(est_mar_likelihood, est_mar_nll_bits_per_subpixel))
+        summaries, global_step = mon_sess.run([model.summaries, model.global_step], feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
+        summary_writer.add_summary(summaries, global_step=global_step)
+        summary_writer.flush()
       elif step % 10 == 1:
-        _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run([check_op, model.train_op, model.summaries, model._images, model.reconstructed_image, model.global_step])
+        _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run(
+            [check_op, model.train_op, model.summaries, model._images, model.reconstructed_image, model.global_step],
+            feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
         summary_writer.add_summary(summaries, global_step=global_step)
         summary_writer.flush()
       else:
-        mon_sess.run([check_op, model.train_op])
+        mon_sess.run([check_op, model.train_op], feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
 
 
 def main(_):

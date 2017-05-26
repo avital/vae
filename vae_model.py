@@ -203,6 +203,9 @@ class ResNet(object):
             tf.summary.scalar('cost', self.cost)
             tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0))
 
+            self.est_mar_nll_bits_per_subpixel = tf.placeholder(tf.float32)
+            tf.summary.scalar('est_marginal_nll_bits_per_subpixel', self.est_mar_nll_bits_per_subpixel)
+
     def _build_train_op(self):
         """Build training specific ops for the graph."""
         self.lrn_rate = tf.constant(0, tf.float32)
