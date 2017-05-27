@@ -128,7 +128,8 @@ def train():
       tensors={'step': model.global_step,
                'loss': model.cost,
                'reconst_loss': model.reconst_loss,
-               'kl_loss': model.kl_loss},
+               'kl_loss': model.kl_loss,
+               'est_mar_nll_bits_per_subpixel': est_mar_nll_bits_per_subpixel},
       every_n_iter=5)
 
   class _LearningRateSetterHook(tf.train.SessionRunHook):
@@ -169,12 +170,6 @@ def train():
             costs.extend(costs_i)
         max_cost = np.max(costs)
         est_mar_likelihood = max_cost + np.log(np.mean(np.exp(costs - max_cost), 0))
-        print()
-        print()
-        print()
-        print("*****")
-        print("*****")
-        print(flush=True)
 
         est_mar_nll_bits_per_subpixel = est_mar_likelihood / 3072 / np.log(2)
         print("Estimated marginal negative log likelihood: {0} nats ({1} bits/dim)".format(est_mar_likelihood, est_mar_nll_bits_per_subpixel))

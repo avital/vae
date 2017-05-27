@@ -146,9 +146,6 @@ class ResNet(object):
 
         with tf.variable_scope('init'):
             x = self.z
-            #with tf.variable_scope("init_conv"):
-#                x = self._fully_connected(x, 8 * 8 * filters[0])
-#            x = tf.reshape(x, [-1, 8, 8, filters[0]])
             x = self._conv('init_conv', x, 3, filters[0], filters[0], self._stride_arr(1))
 
         with tf.variable_scope('unit_1_0'):
@@ -380,14 +377,4 @@ class ResNet(object):
     def _relu(self, x, leakiness=0.0):
         """Relu, with optional leaky support."""
         return tf.where(tf.less(x, 0.0), leakiness * x, x, name='leaky_relu')
-
-    def _fully_connected(self, x, out_dim):
-        """FullyConnected layer for final output."""
-        x = tf.reshape(x, [self.hps.batch_size, -1])
-        w = tf.get_variable(
-            'DW', [x.get_shape()[1], out_dim],
-            initializer=tf.uniform_unit_scaling_initializer(factor=1.0))
-        b = tf.get_variable('biases', [out_dim],
-                            initializer=tf.constant_initializer())
-        return tf.nn.xw_plus_b(x, w, b)
 
