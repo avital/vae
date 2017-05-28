@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar-wide-resnet-1-logistic-decoder-3'
+MODEL_NAME = 'cifar-lesswide-resnet-1-logistic-decoder-4'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -52,7 +52,7 @@ class ResNet(object):
         """
         self.hps = hps
         self._images = images
-        self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 640], mean=0, stddev=1)
+        self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 32], mean=0, stddev=1)
         self.labels = labels
         self.mode = mode
 
@@ -97,7 +97,7 @@ class ResNet(object):
 
         strides = [1, 2, 2]
         activate_before_residual = [True, False, False]
-        filters = [16, 160, 320, 640]
+        filters = [16, 24, 28, 32]
 
         with tf.variable_scope('unit_1_0'):
             x = self._residual(x, filters[0], filters[1], self._stride_arr(strides[0]),
@@ -135,13 +135,13 @@ class ResNet(object):
         with tf.variable_scope('latent'):
             self.z_mean = 0.1 * self._conv('z_mean', x, 1, filters[3], filters[3], [1, 1, 1, 1])
             self.z_logstd = 0.1 * self._conv('z_logstd', x, 1, filters[3], filters[3], [1, 1, 1, 1])
-            self.z_logstd = tf.clip_by_value(self.z_logstd, -6, 6)
+            self.z_logstd = tf.clip_by_value(self.z_logstd, -8, 4)
             self.z_std = tf.exp(self.z_logstd, name="z_std")
             self.z = self.noise * self.z_std + self.z_mean
 
     def _build_decoder(self):
         strides = [2, 2, 1]
-        filters = [640, 320, 160, 16]
+        filters = [32, 28, 24, 16]
         activate_before_residual = [True, False, False]
 
         with tf.variable_scope('init'):
@@ -207,7 +207,7 @@ class ResNet(object):
             self.reconst_summaries.append(tf.summary.scalar('cost', self.cost))
             self.reconst_summaries.append(tf.summary.scalar('base_cost', tf.reduce_mean(self.base_cost, 0)))
 
-            self.est_mar_nll_bits_per_subpixel = tf.placeholder(tf.float32)
+            self.est_mar_nll_bits_per_subpixel = tf.constant(-1, dtype=tf.float32)
             self.summaries.append(tf.summary.scalar('est_marginal_nll_bits_per_subpixel', self.est_mar_nll_bits_per_subpixel))
 
     def _build_train_op(self):
