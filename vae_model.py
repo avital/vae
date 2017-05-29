@@ -1,6 +1,8 @@
 import tensorflow as tf
 
-MODEL_NAME = 'cifar-lesswide-resnet-1-logistic-decoder-4'
+from adamax import AdamaxOptimizer
+
+MODEL_NAME = 'cifar-lesswide-resnet-1-logistic-decoder-4-adamax'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -217,7 +219,7 @@ class ResNet(object):
 
         trainable_variables = tf.trainable_variables()
         grads = tf.gradients(self.cost, trainable_variables)
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.lrn_rate, epsilon=1e-8)
+        optimizer = AdamaxOptimizer(learning_rate=self.lrn_rate)
 
         apply_op = optimizer.apply_gradients(
             zip(grads, trainable_variables),
