@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-32batch'
+EXP_NAME = vae_model.MODEL_NAME + '-32batch-lrn1e-3'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -66,7 +66,7 @@ import vae_model
 
 import cifar_input
 
-hps = HParams(batch_size=28,
+hps = HParams(batch_size=48,
               num_classes=10,
               num_residual_units=4,
 #              num_residual_units=2,
@@ -136,7 +136,7 @@ def train():
     """Sets learning_rate based on global step."""
 
     def begin(self):
-      self._lrn_rate = 1e-4
+      self._lrn_rate = 3e-3
 
     def before_run(self, run_context):
       return tf.train.SessionRunArgs(
@@ -162,10 +162,10 @@ def train():
     est_mar_nll_bits_per_subpixel = np.nan
     while not mon_sess.should_stop():
       step = step + 1
-      if step % 800 == 1:
+      if step % 1200 == 1:
         # estimate marginal log likelihood
         costs = []
-        for i in range(15):
+        for i in range(40):
             costs_i = mon_sess.run(model.base_cost)
             costs.extend(costs_i)
         max_cost = np.max(costs)
