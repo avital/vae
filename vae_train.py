@@ -2,7 +2,7 @@ import tensorflow as tf
 
 import vae_model
 
-EXP_NAME = vae_model.MODEL_NAME + '-32batch-lrn1e-3'
+EXP_NAME = vae_model.MODEL_NAME + '-48batch-lrn3e-3-low-eps'
 
 FLAGS = tf.app.flags.FLAGS
 tf.app.flags.DEFINE_string('dataset', 'cifar10', 'cifar10 or cifar100.')
@@ -176,7 +176,7 @@ def train():
         summaries, global_step = mon_sess.run([model.summaries_merged, model.global_step], feed_dict={model.est_mar_nll_bits_per_subpixel: est_mar_nll_bits_per_subpixel})
         summary_writer.add_summary(summaries, global_step=global_step)
         summary_writer.flush()
-      elif step % 50 == 1:
+      elif step % 500 == 1:
         # sample
         _, __, summaries, input_images, reconstructed_images, global_step = mon_sess.run(
             [check_op, model.train_op, model.summaries_merged_sampled, model._images, model.reconstructed_image, model.global_step],
