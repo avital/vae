@@ -68,7 +68,7 @@ class ResNet(object):
 
         with tf.variable_scope('logistic'):
             self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(10/255.), dtype=tf.float32))
-            self.logistic_s = tf.exp(tf.clip_by_value(self.logistic_logs, -6, 6))
+            self.logistic_s = tf.exp(tf.clip_by_value(self.logistic_logs, -8, 4))
             self.summaries.append(tf.summary.scalar('logistic_s', self.logistic_s))
 
         with tf.variable_scope('encoder'):
