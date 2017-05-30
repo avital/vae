@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from adamax import AdamaxOptimizer
 
-MODEL_NAME = 'cifar-lesswide-resnet-1-logistic-decoder-4'
+MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-logistic-decoder-4'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -173,8 +173,8 @@ class ResNet(object):
 
         # to RGB image
         x = self._conv('to_image', x, 1, filters[3], 3, [1, 1, 1, 1])
-        x = tf.sigmoid(x * 0.1)
-        self.reconstructed_image = x
+#        x = tf.sigmoid(x * 0.1)
+        self.reconstructed_image = tf.clip_by_value(x, -0.5, 0.5) + 0.5
 
         self.reconst_summaries.append(tf.summary.image("reconstructed", x))
         self.sampled_summary = tf.summary.image("sampled", x)
