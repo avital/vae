@@ -107,7 +107,7 @@ def train():
   """Training loop."""
   images, labels = cifar_input.build_input(FLAGS.dataset, FLAGS.train_data_path, hps.batch_size, FLAGS.mode)
 
-  model = vae_model.ResNet(hps, images, labels, FLAGS.mode)
+  model = vae_model.ResNet(hps, images, labels, FLAGS.mode, EXP_NAME)
   model.build_graph()
   init_op = tf.global_variables_initializer()
   check_op = tf.add_check_numerics_ops()
@@ -129,7 +129,8 @@ def train():
                'loss': model.cost,
                'reconst_loss': model.reconst_loss,
                'kl_loss': model.kl_loss,
-               'est_mar_nll_bits_per_subpixel': model.est_mar_nll_bits_per_subpixel},
+               'est_mar_nll_bits_per_subpixel': model.est_mar_nll_bits_per_subpixel,
+               'exp_name': model.EXP_NAME},
       every_n_iter=5)
 
   class _LearningRateSetterHook(tf.train.SessionRunHook):

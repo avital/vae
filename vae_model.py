@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from adamax import AdamaxOptimizer
 
-MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-logistic-decoder-4'
+MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-bn-logistic-decoder-4'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -43,7 +43,7 @@ from tensorflow.python.training import moving_averages
 class ResNet(object):
     """ResNet model."""
 
-    def __init__(self, hps, images, labels, mode):
+    def __init__(self, hps, images, labels, mode, EXP_NAME):
         """ResNet constructor.
 
         Args:
@@ -57,6 +57,7 @@ class ResNet(object):
         self.noise = tf.random_normal(shape=[hps.batch_size, 8, 8, 32], mean=0, stddev=1)
         self.labels = labels
         self.mode = mode
+        self.EXP_NAME_STR = EXP_NAME
 
         self._extra_train_ops = []
 
@@ -65,6 +66,7 @@ class ResNet(object):
         self.global_step = tf.contrib.framework.get_or_create_global_step()
         self.summaries = []
         self.reconst_summaries = []
+        self.EXP_NAME = tf.constant(self.EXP_NAME_STR)
 
         with tf.variable_scope('logistic'):
             self.logistic_logs = tf.get_variable("logistic_logs", initializer=tf.constant(np.log(10/255.), dtype=tf.float32))
@@ -173,7 +175,10 @@ class ResNet(object):
 
         # to RGB image
         x = self._conv('to_image', x, 1, filters[3], 3, [1, 1, 1, 1])
+        x = self._batch_norm('to_image', x)
+
 #        x = tf.sigmoid(x * 0.1)
+        self.reconst_summaries.append(tf.summary.histogram("reconstructed_image_no_clip", x))
         self.reconstructed_image = tf.clip_by_value(x, -0.5, 0.5) + 0.5
 
         self.reconst_summaries.append(tf.summary.image("reconstructed", x))
@@ -336,15 +341,11 @@ class ResNet(object):
         tf.logging.debug('image after unit %s', x.get_shape())
         return x
 
-    def _decay(self):
+    def _var_histograms(self):
         """L2 weight decay loss."""
-        costs = []
         for var in tf.trainable_variables():
             if var.op.name.find(r'DW') > 0:
-                costs.append(tf.nn.l2_loss(var))
-                # tf.summary.histogram(var.op.name, var)
-
-        return tf.multiply(self.hps.weight_decay_rate, tf.add_n(costs))
+                tf.summary.histogram(var.op.name, var)
 
     def _conv(self, name, x, filter_size, in_filters, out_filters, strides):
         """Convolution."""

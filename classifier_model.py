@@ -281,7 +281,7 @@ class ResNet(object):
     for var in tf.trainable_variables():
       print(var.op.name)
       if var.op.name.find(r'DW') > 0 and var.op.name.find(r'encoder') == -1 and var.op.name.find(r'decoder') == -1:
-        costs.append(tf.nn.l2_loss(var))
+#        costs.append(tf.nn.l2_loss(var))
         # tf.summary.histogram(var.op.name, var)
 
     return tf.multiply(self.hps.weight_decay_rate, tf.add_n(costs))
