@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from adamax import AdamaxOptimizer
 
-MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-bn-betterlogistic-decoder-4'
+MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-all-bn-betterlogistic-decoder-4'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -95,7 +95,7 @@ class ResNet(object):
             self.reconst_summaries.append(tf.summary.image('images', self._images))
             x = self._images - 0.5
             print("encoder first shape: ", x.get_shape())
-            x = self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1))
+            x = self._batch_norm('init_conv_bn', self._conv('init_conv', x, 3, 3, 16, self._stride_arr(1)))
 
         self.encoder0 = x
 
@@ -137,8 +137,8 @@ class ResNet(object):
         print("last encoder x shape", x.get_shape())
 
         with tf.variable_scope('latent'):
-            self.z_mean = 0.1 * self._conv('z_mean', x, 1, filters[3], filters[3], [1, 1, 1, 1])
-            self.z_logstd = 0.1 * self._conv('z_logstd', x, 1, filters[3], filters[3], [1, 1, 1, 1])
+            self.z_mean = 0.1 * self._batch_norm('z_mean_bn', self._conv('z_mean', x, 1, filters[3], filters[3], [1, 1, 1, 1]))
+            self.z_logstd = 0.1 * self._batch_norm('z_logstd_bn', self._conv('z_logstd', x, 1, filters[3], filters[3], [1, 1, 1, 1]))
             self.z_logstd = tf.clip_by_value(self.z_logstd, -8, 4)
             self.z_std = tf.exp(self.z_logstd, name="z_std")
             self.z = self.noise * self.z_std + self.z_mean
@@ -150,7 +150,7 @@ class ResNet(object):
 
         with tf.variable_scope('init'):
             x = self.z
-            x = self._conv('init_conv', x, 3, filters[0], filters[0], self._stride_arr(1))
+            x = self._batch_norm('init_conv_bn', self._conv('init_conv', x, 3, filters[0], filters[0], self._stride_arr(1)))
 
         with tf.variable_scope('unit_1_0'):
             x = self._backresidual(x, filters[0], filters[1], self._stride_arr(strides[0]),
@@ -317,15 +317,18 @@ class ResNet(object):
         """Residual unit with 2 sub layers."""
         if activate_before_residual:
             with tf.variable_scope('shared_activation'):
+                x = self._batch_norm('backresbn1', x)
                 x = self._relu(x, self.hps.relu_leakiness)
                 orig_x = x
         else:
             with tf.variable_scope('residual_only_activation'):
                 orig_x = x
+                x = self._batch_norm('backresbn1', x)
                 x = self._relu(x, self.hps.relu_leakiness)
 
         with tf.variable_scope('sub2'):
             x = self._conv('conv2', x, 3, in_filter, in_filter, [1, 1, 1, 1])
+            x = self._batch_norm('backresbn2', x)
             x = self._relu(x, self.hps.relu_leakiness)
 
         with tf.variable_scope('sub1'):
