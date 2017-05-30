@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from adamax import AdamaxOptimizer
 
-MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-bn-logistic-decoder-4'
+MODEL_NAME = 'cifar-lesswide-resnet-1-clipped-bn-betterlogistic-decoder-4'
 
 #tf.app.flags.DEFINE_string('train_dir', './train_dir/{0}'.format(EXP_NAME),
 #                           'Directory to keep training outputs.')
@@ -188,8 +188,8 @@ class ResNet(object):
 
     def _build_cost(self):
         with tf.variable_scope('costs'):
-            image_low_value = tf.floor(self._images * 254.9999) / 255.
-            image_high_value = image_low_value + 1 / 255.
+            image_low_value = self._images - 0.5 / 256.
+            image_high_value = self._images + 0.5 / 256.
             def cdf(x, mu):
                 return tf.sigmoid((x - mu) / self.logistic_s)
             low_cdf = cdf(image_low_value, self.reconstructed_image)
